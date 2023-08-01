@@ -8,8 +8,19 @@ def filter():
     with open(file_name, 'a', encoding="utf-8") as myfile:
         for i, item in enumerate(rec_non):
             if check_non_coding(item.description):
-                myfile.write(f">{item.description}\n")
-                myfile.write(f"{item.seq}\n")
+                if len(item.seq) > 1500:
+                    list_chunks = split_sequence(str(item.seq))
+                    for j, chunk in enumerate(list_chunks):
+                        myfile.write(f">{item.description}-{j}\n")
+                        myfile.write(f"{chunk}\n")
+                else:
+                    myfile.write(f">{item.description}\n")
+                    myfile.write(f"{item.seq}\n")
+
+
+def split_sequence(sequence):
+    chunk_size = 1500
+    return [sequence[i:i + chunk_size] for i in range(0, len(sequence), chunk_size)]
 
 
 def check_non_coding(item_description):
