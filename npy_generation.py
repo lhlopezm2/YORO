@@ -96,7 +96,7 @@ def sequence_generation(k):
         else:
             A = A+str(rec_non[index_negatives[azar]].seq)
         lon = len(A)
-        index_negatives.remove(index_negatives[azar])
+        # index_negatives.remove(index_negatives[azar])
     return A
 
 
