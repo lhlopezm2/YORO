@@ -21,8 +21,17 @@ def check_non_coding(item_description):
     return True
 
 
+def analyze_filtered_negative():
+    rec_non_filtered = list(SeqIO.parse("data/filtered_negative.fasta", "fasta"))
+    size_list = [len(x.seq) for x in rec_non_filtered]
+    print(f"The total amount of negative sequences after filtration is {len(rec_non_filtered)}")
+    print(f"The minimum size of the filtered negative sequences is {min(size_list)}")
+    print(f"The maximum size of the filtered negative sequences is {max(size_list)}")
+
+
 def main():
     filter()
+    analyze_filtered_negative()
 
 
 if __name__ == "__main__":
