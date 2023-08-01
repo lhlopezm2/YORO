@@ -2,12 +2,12 @@
 
 #SBATCH -J YORO
 #SBATCH -D .
-#SBATCH -o out2_npy_generation.txt
-#SBATCH -e err2_npy_generation.txt
+#SBATCH -o out_npy_generation.txt
+#SBATCH -e err_npy_generation.txt
 #SBATCH -n 10
 #SBATCH -N 1
-#SBATCH --partition=long
-#SBATCH --mem=50G
+#SBATCH --partition=fast
+#SBATCH --mem=8G
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luish.lopezm@autonoma.edu.co
 

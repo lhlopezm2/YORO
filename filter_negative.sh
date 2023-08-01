@@ -6,7 +6,7 @@
 #SBATCH -e err_filter_negative.txt
 #SBATCH -n 5
 #SBATCH -N 1
-#SBATCH --partition=long
+#SBATCH --partition=fast
 #SBATCH --mem=10G
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luish.lopezm@autonoma.edu.co

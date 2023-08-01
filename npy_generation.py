@@ -187,7 +187,7 @@ def complete_with_negatives(Rep2D, Label, ventana):
 def dataset_creation():
     global index_negatives
     ventana = 50000
-    opcion = '.'
+    opcion = 'data'
     sample = 722084
     step = 5000
     cont = 0        # Empieza en el mismo valor donde quedo la vez pasada
