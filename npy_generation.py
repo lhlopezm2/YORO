@@ -8,7 +8,7 @@ from Bio import SeqIO
 random.seed(10)
 
 rec_TE = list(SeqIO.parse("data/TEDB.fasta", "fasta"))
-rec_non = list(SeqIO.parse("data/negative.fasta", "fasta"))
+rec_non = list(SeqIO.parse("data/filtered_negative.fasta", "fasta"))
 index_negatives = [x for x in range(0, len(rec_non))]
 dicc_size = {0: 2000, 1: 2000, 2: 4000, 3: 1000, 4: 2000, 5: 3000, 6: 15000, 7: 18000}
 dicc_dom = {'LTR': 5, 'GAG': 1, 'PROT': 3, 'RT': 0, 'INT': 2, 'RH': 4, 'internal': 6, 'te': 7}
@@ -231,6 +231,7 @@ def dataset_creation():
                 cont_seq += 1
                 flag_save = 1
                 index_negatives = [x for x in range(0, len(rec_non))]
+                gc.collect()
             else:
                 Rep2D = np.append(Rep2D, Rep2D_single, axis=2)
                 Label = np.append(Label, Label_single, axis=2)
