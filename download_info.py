@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 import requests
+import sys
 from auxiliary_functions.Web_genome import download
 
 
@@ -49,9 +50,9 @@ def te_extraction(fasta, gff, te_file):
             try:
                 _ = genome[data_dicc["chrom"][0]]
             except Exception:  # pylint: disable=broad-except
-                print(f"Genoma {gff} with Chromosome column {data_dicc['chrom'][0]} is not \
-                      matching chromosome id in fasta")
-                continue
+                print(f"Genoma {gff} with Chromosome column {data_dicc['chrom'][0]} is not matching chromosome id in fasta")
+                sys.stdout.flush()
+                break
             domains = {}
             te_dicc = {'TE': [data_dicc["start"][0], data_dicc["end"][-1]]}
             dicc = {'intact_5ltr': 'LTR', 'RH': 'RH', 'RT': 'RT', 'INT': 'INT', 'PROT': 'PROT',
@@ -64,10 +65,16 @@ def te_extraction(fasta, gff, te_file):
                         domains[dicc[data_dicc["dom"][i]]] = [start_i, data_dicc["end"][i]]
                 except Exception:  # pylint: disable=broad-except
                     pass
-            myfile.write(f">{data_dicc['species'][0]}#{data_dicc['chrom'][0]}#\
-                         {data_dicc['s_f'][0]}#{str(te_dicc)}#{str(domains)}\n")
+            myfile.write(f">{data_dicc['species'][0]}#{data_dicc['chrom'][0]}#{data_dicc['s_f'][0]}#{str(te_dicc)}#{str(domains)}\n")
             interval = [data_dicc['start'][0], data_dicc['end'][-1]]
-            myfile.write(str(genome[data_dicc['chrom'][0]][interval[0]:interval[1]])+"\n")
+            sequence = str(genome[data_dicc['chrom'][0]][interval[0]:interval[1]])
+            if len(sequence)==0:
+                print("This LTR-RT has zero length, which implies that mapping between gff and fasta is wrong")
+                print(f">{data_dicc['species'][0]}#{data_dicc['chrom'][0]}#{data_dicc['s_f'][0]}#{str(te_dicc)}#{str(domains)}\n")
+                print(gff)
+                print(f"This chromosome has a length of {len(genome[data_dicc['chrom'][0]])}")
+                # sys.exit(1)
+            myfile.write(sequence+"\n")
 
 
 def extract_data(data):
@@ -89,14 +96,17 @@ def obtain_genome_size():
     if os.path.exists('./data/dataset.csv'):
         df_dataset = pd.read_csv('./data/dataset.csv')
         print('dataset.csv ya existe')
+        sys.stdout.flush()
     else:
         df_dataset = pd.read_csv('data/genomes_links.csv', sep=";")
         df_dataset = df_dataset[['Order', 'Family', 'Species', 'Filtered data', 'genome_size']]
         df_dataset.sort_values(['genome_size'], inplace=True)
         df_dataset['real_size'] = df_dataset.apply(real_size, axis=1)
         print(f"El numero de links es de {df_dataset['real_size'].count()}")
+        sys.stdout.flush()
         df_dataset = df_dataset[df_dataset['real_size'] > 0]
         print(f"El numero de links accesibles es de {df_dataset['real_size'].count()}")
+        sys.stdout.flush()
         df_dataset.sort_values(by=['real_size'], ascending=True, inplace=True)
         df_dataset.reset_index(inplace=True, drop=True)
         df_dataset.reset_index(inplace=True)
@@ -110,6 +120,7 @@ def obtain_genome_size():
         )
         df_dataset.to_csv('./data/dataset.csv', index=False)
     print(df_dataset[['Species', 'path_annot']].head(5))
+    sys.stdout.flush()
     return df_dataset
 
 
@@ -129,20 +140,68 @@ def build_te_fasta(df_with_size):
                     name=row['fasta_name'],
                     timeout=100
                 )
+            if not os.path.exists(f"{row['fasta_name']}"):
+                print(f"Genome {row['fasta_name']} could not be downloaded")
+                sys.stdout.flush()
+                continue
             te_extraction(
                 fasta=row['fasta_name'],
                 gff=row['path_annot'],
-                te_file='data/TEDB.fasta'
+                te_file='/shared/home/sorozcoarias/coffea_genomes/Simon/YORO/data/TEDB.fasta'
             )
             os.remove(row['fasta_name'])
-        # if index == 1:
-        #  break
+        # if index == 84:
+        #    break
+
+
+def update_species_in_fasta(species, df_with_size):
+    for index, row in df_with_size.iterrows():
+        if row['Species'] in species:
+            if not os.path.exists(f"{row['fasta_name']}"):
+                download(
+                    path_save='.',
+                    link=row['Filtered data'],
+                    name=row['fasta_name'],
+                    timeout=100
+                )
+            if not os.path.exists(f"{row['fasta_name']}"):
+                print(f"Genome {row['fasta_name']} could not be downloaded")
+                sys.stdout.flush()
+                continue
+            te_extraction(
+                fasta=row['fasta_name'],
+                gff=row['path_annot'],
+                te_file='/shared/home/sorozcoarias/coffea_genomes/Simon/YORO/data/TEDB_curated.fasta'
+            )
+            os.remove(row['fasta_name'])
+
+
+def check_species(species, description):
+    for specie in species:
+        if specie in description:
+            return False
+    return True
+
+
+def remove_species_from_fasta(species):
+    filtered_sequences = []
+    for record in SeqIO.parse("data/TEDB.fasta", "fasta"):
+        if check_species(species,record.description):
+            filtered_sequences.append(record)
+    SeqIO.write(filtered_sequences, "data/TEDB_curated.fasta", "fasta")
 
 
 def main():
     """Creates the dataset.csv and genomes_link.csv"""
     df_with_size = obtain_genome_size()
-    build_te_fasta(df_with_size)
+    action = "curate"
+    if action == "build":
+        build_te_fasta(df_with_size)
+    elif action == "curate":
+        species=["Ipomoea_triloba"]
+        remove_species_from_fasta(species)
+        species = [x.replace('_',' ') for x in species]
+        update_species_in_fasta(species, df_with_size)
 
 
 if __name__ == "__main__":
