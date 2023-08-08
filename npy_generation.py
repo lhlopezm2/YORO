@@ -29,7 +29,7 @@ def exploratory_analysis():
     sys.stdout.flush()
     dicc_analysis = {'TE': [], 'TE2': [], 'PROT': [], 'RT': [], 'INT': [], 'RH': [],
                      'GAG': [], 'LTR': [], 'internal': []}
-    for i in rec_TE:
+    for i in rec_TE.values():
         dicc_tmp_dom = json.loads(i.description.split("#")[-1].replace('\'', '\"'))
         dicc_tmp_te = json.loads(i.description.split("#")[-2].replace('\'', '\"'))
         dicc_analysis['TE'].append(dicc_tmp_te['TE'][1]-dicc_tmp_te['TE'][0]+1)
