@@ -93,7 +93,7 @@ def training_YORO(dataset):
     return [X_test, Y_test, Z_test]
 
 def compute_metrics(X_test, Y_test, Z_test):
-    model_name=f'{opcion}/AAYOLO_domain_V27'
+    model_name=f'{opcion_results}/AAYOLO_domain_V27'
     model = YOLO_domain()
     filepath='{}.hdf5'.format(model_name)
     model.load_weights(filepath)
@@ -139,9 +139,9 @@ def compute_metrics(X_test, Y_test, Z_test):
     sys.stdout.flush()
 
 def main():
-    X_test, Y_test, Z_test = training_YORO('int_dom')
-    gc.collect()
-    '''
+    #X_test, Y_test, Z_test = training_YORO('int_dom')
+    #gc.collect()
+    #'''
     step = 5000
     sample = 5000
     a = 0
@@ -153,7 +153,7 @@ def main():
     gc.collect()
     Z_test = load_set_z('test',step,sample)
     gc.collect()
-    '''
+    #'''
     compute_metrics(X_test, Y_test, Z_test)
 
 
