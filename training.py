@@ -30,6 +30,14 @@ def load_set_x(partition,step,sample):
     return X
 
 
+def load_set_y(partition, step, sample, a, b, c):
+    Y = np.load(f'{opcion}/Y_{partition}{5000}.npy')[:,a:b,:,0:c]
+    for i in np.arange(2*step,sample+step,step):
+        YY=np.load(f'{opcion}/Y_{partition}{i}.npy')[:,a:b,:,0:c]
+        Y = np.concatenate((Y, YY))
+    return Y
+
+
 def load_set_y_without_LTR(partition,step,sample,a,b,c):
     Y = np.load(f'{opcion}/Y_{partition}{5000}.npy')[:,a:b,:,0:c]
     Y = remove_LTR_data(Y,c)
@@ -39,10 +47,7 @@ def load_set_y_without_LTR(partition,step,sample,a,b,c):
         Y = np.concatenate((Y, YY))
     return Y
 
-def training_YORO(dataset):
-    sample = 5000
-    step = 5000
-    n=step
+def training_YORO(dataset, step, sample):
     X_train = load_set_x('train',step,sample)
     X_dev = load_set_x('dev',step,sample)
     X_test = load_set_x('test',step,sample)
@@ -53,6 +58,13 @@ def training_YORO(dataset):
         Y_train = load_set_y_without_LTR('train',step,sample,a,b,c)
         Y_dev = load_set_y_without_LTR('dev',step,sample,a,b,c)
         Y_test = load_set_y_without_LTR('test',step,sample,a,b,c)
+    elif dataset == 'int_reg':
+        a = 1
+        b = 2
+        c = 5
+        Y_train = load_set_y('train',step,sample,a,b,c)
+        Y_dev = load_set_y('dev',step,sample,a,b,c)
+        Y_test = load_set_y('test',step,sample,a,b,c)
     else:
        return None
     Z_train = load_set_z('train',step,sample)
@@ -72,8 +84,9 @@ def training_YORO(dataset):
     model_name=f'{opcion_results}/AAYOLO_domain_V27'
     model = YOLO_domain()
     filepath=f'{model_name}.hdf5'
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss_precision_training',save_weights_only=True,mode='max',save_best_only=True)
-    history=model.fit(X_train, Y_train, epochs=30, callbacks=[checkpoint], batch_size=32, validation_data=(X_dev,Y_dev))
+    #checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss_precision_training',save_weights_only=True,mode='max',save_best_only=True)
+    checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss',save_weights_only=True,mode='min',save_best_only=True)
+    history=model.fit(X_train, Y_train, epochs=150, callbacks=[checkpoint], batch_size=32, validation_data=(X_dev,Y_dev))
 
     plt.figure()
     plt.plot(history.history['loss'])
@@ -92,16 +105,18 @@ def training_YORO(dataset):
     plt.savefig(f"{opcion_results}/monitor-PR.png", format="png")
     return [X_test, Y_test, Z_test]
 
-def compute_metrics(X_test, Y_test, Z_test):
+def compute_metrics(X_test, Y_test, Z_test, section):
     model_name=f'{opcion_results}/AAYOLO_domain_V27'
     model = YOLO_domain()
     filepath='{}.hdf5'.format(model_name)
     model.load_weights(filepath)
     Yhat_test = model.predict(X_test)
-
-    indexes=[3,3+5]
-    region='dom'
-    #region='internal'
+    if section == 'int_dom':
+        indexes = [3,3+5]
+        region='dom'
+    elif section == 'int_reg':
+        indexes = [3,3+2]
+        region='internal'
     th_max=Precision_Recall_ROC_TE(Y_test,Yhat_test,indexes,region,opcion_results)
     print(th_max)
     sys.stdout.flush()
@@ -139,22 +154,24 @@ def compute_metrics(X_test, Y_test, Z_test):
     sys.stdout.flush()
 
 def main():
-    #X_test, Y_test, Z_test = training_YORO('int_dom')
-    #gc.collect()
-    #'''
     step = 5000
     sample = 5000
-    a = 0
-    b = 1
-    c = 9
+    section = 'int_dom'
+    section = 'int_reg'
+    X_test, Y_test, Z_test = training_YORO(section, step, sample)
+    gc.collect()
+    '''
+    a = 1
+    b = 2
+    c = 5
     X_test = load_set_x('test',step,sample)
     gc.collect()
     Y_test = load_set_y_without_LTR('test',step,sample,a,b,c)
     gc.collect()
     Z_test = load_set_z('test',step,sample)
     gc.collect()
-    #'''
-    compute_metrics(X_test, Y_test, Z_test)
+    '''
+    compute_metrics(X_test, Y_test, Z_test, section)
 
 
 if __name__ == "__main__":

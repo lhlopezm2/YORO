@@ -3,7 +3,7 @@
 #SBATCH -D .
 #SBATCH -o out_npy_generation.txt
 #SBATCH -e err_npy_generation.txt
-#SBATCH -n 50
+#SBATCH -n 51
 #SBATCH -N 1
 #SBATCH --partition=fast
 #SBATCH --mem=20G

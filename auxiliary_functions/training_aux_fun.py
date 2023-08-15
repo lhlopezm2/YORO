@@ -7,6 +7,10 @@ from tensorflow.keras.optimizers import RMSprop, Adam, Adagrad, SGD, Adadelta, A
 from tensorflow.keras.layers import Dropout, Activation, Flatten, Concatenate, Dense, Reshape, Add, PReLU, LeakyReLU, BatchNormalization
 from tensorflow.keras.regularizers import l2
 
+# config = tf.compat.v1.ConfigProto()
+# config.gpu_options.allow_growth = True
+# session = tf.compat.v1.InteractiveSession(config=config)
+
 dicc_size = {0: 2000, 1: 2000, 2: 4000, 3: 1000, 4: 2000, 5: 3000, 6: 15000, 7: 18000}
 dicc_sf = {'copia': 0, 'gypsy': 1}
 dicc_dom = {'LTR': 5, 'GAG': 1, 'PROT': 3, 'RT': 0, 'INT': 2, 'RH': 4, 'internal': 6, 'te': 7}
@@ -15,10 +19,14 @@ ventana = 50000
 def loss_domains(y_true, y_pred):
     focus = tf.gather(y_true,tf.constant([0]),axis=-1)
     w1=focus
-    w2=(focus-1)*(-1)*(5*5/(500-5*5))*0.8
-    #w2=(focus-1)*(-1)*(6/(500-6))
-    weights=tf.concat([w1+w2,focus,focus,focus, focus, focus, focus, focus],axis=-1)
-    #weights=tf.concat([w1+w2,focus,focus,focus, focus],axis=-1)
+    # w2=(focus-1)*(-1)*(5*5/(500-5*5))
+    w2=(focus-1)*(-1)*(4/(500-4))
+    a=10
+    b=10
+    c=10
+    d=1
+    # weights=tf.concat([(w1+w2)*a,focus*b,focus*c,focus*d, focus*d, focus*d, focus*d, focus*d],axis=-1)
+    weights=tf.concat([(w1+w2)*a,focus*b,focus*c,focus*d, focus*d],axis=-1)
     salida = K.sum(K.pow((y_true-y_pred),2)*weights)
     return salida
 
@@ -100,11 +108,11 @@ def Visualization_LTR(Yhat,Y,indexes,region,opcion):
     ax.broken_barh(x_dom_true, y_dom_true, facecolors=colour_dom_true,alpha=0.7)
     ax.set_xlim([0, ventana])
     
-    if indexes[1]==9:
+    if indexes[1]==9 or indexes[1]==8:
       custom_lines = [Line2D([0], [0], color=color[value], lw=4) for key,value in dicc_dom.items() if (value!=6 or value!=7)]
       etiquetas_dom = [key for key in dicc_dom.keys()]
       ax.legend(custom_lines, etiquetas_dom)
-    elif indexes[1]==11 or indexes[1]==5:
+    elif indexes[1]==5:
       custom_lines = [Line2D([0], [0], color=color[value+6], lw=4) for key,value in dicc_sf.items()]
       etiquetas_sf = [i for i in dicc_sf.keys()]
       ax.legend(custom_lines, etiquetas_sf)
@@ -426,7 +434,7 @@ def YOLO_domain(optimizador=Adam,lr=0.001,momen=0,init_mode='glorot_normal',fun_
     L16 = Add()([L13,L16])
     L16 = tf.keras.layers.ReLU()(L16)
 
-    layers = tf.keras.layers.Conv2D(8, (1, 10), strides=(1,1),padding='same',activation='sigmoid', use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L16)
+    layers = tf.keras.layers.Conv2D(5, (1, 10), strides=(1,1),padding='same',activation='sigmoid', use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L16)
     model = tf.keras.Model(inputs = inputs, outputs=layers)
     opt = optimizador(learning_rate=lr)
     model.compile(loss=loss_domains, optimizer=opt, metrics=[loss_precision_training])

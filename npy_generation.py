@@ -249,12 +249,17 @@ def optimized_dataset_creation():
         row_list = []
         for i in range(num_cores):
             indexes_for_row = []
-            for j in range(num_tes_per_row):
+            len_ind = len(indexes_for_row)
+            while len_ind < num_tes_per_row:
                 if len(indexes_list)==0:
                     break
                 number = random.choice(list(range(len(indexes_list))))
                 index = indexes_list.pop(number)
                 indexes_for_row.append(index)
+                dicc_tmp_dom = json.loads(rec_TE[index].description.split('#')[-1].replace('\'', '\"'))
+                if 'LTR' not in dicc_tmp_dom:
+                    indexes_for_row.pop(-1)
+                len_ind = len(indexes_for_row)
             rec_TE_subgroup = {key: rec_TE[key] for key in indexes_for_row if key in rec_TE}
             background = sequence_generation(ventana+10000)
             row_list.append(row_creation.remote(rec_TE_subgroup, background, indexes_for_row, ventana, num_labels))
@@ -336,7 +341,6 @@ def optimized_dataset_creation():
             Y_data = np.zeros((0,3,500,num_labels),dtype=np.float32)
             Z_data = np.zeros((0,10),dtype=np.int64)
             gc.collect()
-            break
 
 
 def main():
