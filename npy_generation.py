@@ -124,12 +124,12 @@ def extend_DNA_with_negatives(DNA_sequence, background, start_bg):
     return DNA_new, size_start
 
 
-def DNA_dataset(item, background, start_bg):
+def DNA_dataset(item, background, start_bg, num_labels):
     DNA = str(item.seq)
     DNA, long_start_negative = extend_DNA_with_negatives(DNA, background, start_bg)
     ventana = len(DNA)
     DNA_2D = Seq_to_2D(DNA)
-    label = np.zeros((1, 3, int(ventana/100), 11), dtype=np.float32)
+    label = np.zeros((1, 3, int(ventana/100), num_labels), dtype=np.float32)
     dicc_tmp_dom = json.loads(item.description.split('#')[-1].replace('\'', '\"'))
     dicc_tmp_te = json.loads(item.description.split('#')[-2].replace('\'', '\"'))
     pto_ref = dicc_tmp_te['TE'][0]
@@ -148,7 +148,7 @@ def DNA_dataset(item, background, start_bg):
         for i in indice:
             label[0, 0, int(i/100), 0] = 1
             label[0, 0, int(i/100), 1] = (i-int(i/100)*100)/100
-            label[0, 0, int(i/100), 2] = (lista[k*2+1]-lista[k*2])/size_dom
+            label[0, 0, int(i/100), 2] = 2.405*np.log10((lista[k*2+1]-lista[k*2])/4000+1.202)
             label[0, 0, int(i/100), dom] = 1
             try:
                 sf = dicc_sf[item.id.split('#')[2]]+9
@@ -204,7 +204,7 @@ def row_creation(rec_TE, background, list_indexes, ventana, num_labels):
     for i, idx in enumerate(list_indexes):
         gc.collect()
         item = rec_TE[idx]
-        Rep2D_single, Label_single = DNA_dataset(item, background, Rep2D.shape[2])
+        Rep2D_single, Label_single = DNA_dataset(item, background, Rep2D.shape[2], num_labels)
         if flag == 'first_in_seq':
             Rep2D = Rep2D_single
             Label = Label_single
@@ -237,7 +237,7 @@ def optimized_dataset_creation():
     opcion = '/shared/home/sorozcoarias/coffea_genomes/Simon/YORO/data'
     step = 5000
     ventana = 50000
-    num_labels = 11
+    num_labels = 9
     indexes_list = list(range(len(rec_TE)))
     flag = True
     num_tes_per_row = 10

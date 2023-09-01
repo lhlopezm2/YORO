@@ -6,7 +6,7 @@
 #SBATCH -n 15
 #SBATCH -N 1
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:4
 #SBATCH --mem=20G
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luish.lopezm@autonoma.edu.co

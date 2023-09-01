@@ -19,14 +19,14 @@ ventana = 50000
 def loss_domains(y_true, y_pred):
     focus = tf.gather(y_true,tf.constant([0]),axis=-1)
     w1=focus
-    # w2=(focus-1)*(-1)*(5*5/(500-5*5))
-    w2=(focus-1)*(-1)*(4/(500-4))
-    a=10
-    b=10
-    c=10
+    w2=(focus-1)*(-1)*(5*5/(500-5*5))
+    #w2=(focus-1)*(-1)*(4/(500-4))
+    a=1
+    b=1
+    c=1
     d=1
-    # weights=tf.concat([(w1+w2)*a,focus*b,focus*c,focus*d, focus*d, focus*d, focus*d, focus*d],axis=-1)
-    weights=tf.concat([(w1+w2)*a,focus*b,focus*c,focus*d, focus*d],axis=-1)
+    weights=tf.concat([(w1+w2)*a,focus*b,focus*c,focus*d, focus*d, focus*d, focus*d, focus*d],axis=-1)
+    #weights=tf.concat([(w1+w2)*a,focus*b,focus*c,focus*d, focus*d],axis=-1)
     salida = K.sum(K.pow((y_true-y_pred),2)*weights)
     return salida
 
@@ -35,6 +35,10 @@ def loss_precision_training(y_true, y_pred):
     presence_pred = tf.gather(y_pred,tf.constant([0]),axis=-1)
     salida = K.sum(presence_true*presence_pred)/K.sum(presence_pred)
     return salida
+
+def size_log(norm_value):
+    return (10**(norm_value/2.405)-1.202)*4000
+
 
 def nt_region(y,indexes,region):
   sample = y.shape[0]
@@ -46,17 +50,17 @@ def nt_region(y,indexes,region):
     for h in range(len(indices)):
         j=indices[h]
         if region == 'dom':
-          size = dicc_size[np.argmax(y[i,0,j,indexes[0]:indexes[1]])]
+          size = size_log(y[i,0,j,2])
         elif region =='internal':
-          size = dicc_size[6]
+          size = dicc_size[6]*y[i,0,j,2]
         elif region =='full':
-          size = dicc_size[7]
+          size = dicc_size[7]*y[i,0,j,2]
         inicio = int(j*100+y[i,0,j,1]*100)
-        fin = int(inicio+y[i,0,j,2]*size)
+        fin = int(inicio+size)
         nucleotidos[i,0,inicio:fin]=1
   return nucleotidos
 
-def Visualization_LTR(Yhat,Y,indexes,region,opcion):
+def Visualization_LTR(Yhat,Y,indexes,region,opcion,name):
     color={0:'b',1:'r',2:'g',3:'k',4:'y',5:'m',6:'b',7:'r'}
 
     Yhat_nt = nt_region(Yhat.reshape((1,Yhat.shape[0],Yhat.shape[1],Yhat.shape[2])),indexes,region)
@@ -69,14 +73,14 @@ def Visualization_LTR(Yhat,Y,indexes,region,opcion):
         start_true = int(i*100+Y[0,i,1]*100)
         if region == 'dom':
           key = np.argmax(Y[0,i,indexes[0]:indexes[1]])
-          size = dicc_size[key]
+          size = size_log(Y[0,i,2])
         elif region=='internal':
-          size = dicc_size[6]
+          size = dicc_size[6]*Y[0,i,2]
           key = np.argmax(Y[0,i,indexes[0]:indexes[1]])+6
         elif region=='full':
-          size = dicc_size[7]
+          size = dicc_size[7]*Y[0,i,2]
           key = np.argmax(Y[0,i,indexes[0]:indexes[1]])+6
-        x_dom_true.append((start_true, int(Y[0,i,2]*size)))
+        x_dom_true.append((start_true, int(size)))
         colour_dom_true.append(color[key])
     y_dom_true=(0.55,0.45)
     colour_dom_true=tuple(colour_dom_true)
@@ -88,14 +92,14 @@ def Visualization_LTR(Yhat,Y,indexes,region,opcion):
         start_pred = int(i*100+Yhat[0,i,1]*100)
         if region == 'dom':
           key = np.argmax(Y[0,i,indexes[0]:indexes[1]])
-          size = dicc_size[key]
+          size = size_log(Yhat[0,i,2])
         elif region=='internal':
-          size = dicc_size[6]
+          size = dicc_size[6]*Yhat[0,i,2]
           key = np.argmax(Y[0,i,indexes[0]:indexes[1]])+6
         elif region=='full':
-          size = dicc_size[7]
+          size = dicc_size[7]*Yhat[0,i,2]
           key = np.argmax(Y[0,i,indexes[0]:indexes[1]])+6
-        x_dom_pred.append((start_pred, int(Yhat[0,i,2]*size)))
+        x_dom_pred.append((start_pred, int(size)))
         colour_dom_pred.append(color[key])   
     y_dom_pred = (1.5,0.45)
     colour_dom_pred=tuple(colour_dom_pred)
@@ -116,7 +120,7 @@ def Visualization_LTR(Yhat,Y,indexes,region,opcion):
       custom_lines = [Line2D([0], [0], color=color[value+6], lw=4) for key,value in dicc_sf.items()]
       etiquetas_sf = [i for i in dicc_sf.keys()]
       ax.legend(custom_lines, etiquetas_sf)
-    plt.savefig(f"{opcion}/visualization.png", format="png")
+    plt.savefig(f"{opcion}/visualization{name}.png", format="png")
     return None
 
 def IOU(box1,box2,size1,size2):
@@ -137,7 +141,7 @@ def IOU(box1,box2,size1,size2):
     iou = inter_area/union_area
     return iou
 
-def NMS(Yhat, threshold_presence, threshold_NMS, indexes):
+def NMS(Yhat, threshold_presence, threshold_NMS, indexes, region):
   Yhat_new = np.copy(Yhat)
   for index in range(Yhat.shape[0]):
     mascara = (Yhat[index,:,:,0:1]>=threshold_presence)*1
@@ -151,10 +155,16 @@ def NMS(Yhat, threshold_presence, threshold_NMS, indexes):
         break
       ind_nonzero = np.nonzero(data_mod)[0][1:]
       for i in ind_nonzero:
-          box1=[data_pred[0,ind_first,1],data_pred[0,ind_first,2],ind_first]
-          box2=[data_pred[0,i,1],data_pred[0,i,2],i]
-          size1=dicc_size[np.argmax(data_pred[0,ind_first,indexes[0]:indexes[1]])]
-          size2=dicc_size[np.argmax(data_pred[0,i,indexes[0]:indexes[1]])]
+          if region == 'dom':
+              box1=[data_pred[0,ind_first,1],1,ind_first]
+              box2=[data_pred[0,i,1],1,i]
+              size1 = size_log(data_pred[0,ind_first,2])
+              size2 = size_log(data_pred[0,i,2])
+          else:
+              box1=[data_pred[0,ind_first,1],data_pred[0,ind_first,2],ind_first]
+              box2=[data_pred[0,i,1],data_pred[0,i,2],i]
+              size1=dicc_size[np.argmax(data_pred[0,ind_first,indexes[0]:indexes[1]])]
+              size2=dicc_size[np.argmax(data_pred[0,i,indexes[0]:indexes[1]])]
           iou = IOU(box1,box2,size1,size2)
           if iou>=threshold_NMS:
             if data_mod[i]>data_mod[ind_first]:
@@ -269,7 +279,7 @@ def Plot_parity_TE(Y_true,Yhat_pred,indexes,region,opcion):
     indices_hat_start,indices_hat_end,indices_true_start,indices_true_end,long_true=acoplamiento(indices_hat_start,indices_hat_end,indices_true_start,indices_true_end,long_true)
     array_inicio_hat = np.array(indices_hat_start)
     array_inicio_true = np.array(indices_true_start)
-    if np.sum((np.absolute(array_inicio_hat-array_inicio_true)>1000)*1)>0:
+    if np.sum((np.absolute(array_inicio_hat-array_inicio_true)>10000)*1)>0:
       malos=malos+str(i)+'-'
     try:
       inicio_hat_pred = inicio_hat_pred + indices_hat_start
@@ -338,7 +348,7 @@ def Precision_Recall_ROC_TE(y_true,y_hat,indexes,region,opcion):
   producto_maximo=0
   th_vector = np.arange(0.7,1,0.01)
   for th in th_vector:
-    Yhat_pred = NMS(y_hat, th, 0.1, indexes)
+    Yhat_pred = NMS(y_hat, th, 0.1, indexes, region)
     Y_pred_nt = nt_region(Yhat_pred,indexes,region)
     TP = np.sum(Y_true_nt*Y_pred_nt)
     FP = np.sum(Y_pred_nt)-TP
@@ -373,68 +383,68 @@ def YOLO_domain(optimizador=Adam,lr=0.001,momen=0,init_mode='glorot_normal',fun_
     w = 100
     n = 16
     inputs = tf.keras.Input(shape=(4,ventana, 1), name="input_1")
-    L1 = tf.keras.layers.Conv2D(n, (4, 50), strides=(1,1),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(inputs)
-    L1 = tf.keras.layers.ZeroPadding2D(padding=((0,0), (0,49)))(L1)
-    L1 = tf.keras.layers.Conv2D(n, (1, 5), strides=(1,5),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L1)
-    L1 = tf.keras.layers.BatchNormalization()(L1)
-    L1 = tf.keras.layers.ReLU()(L1)
-    L2 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L1)
-    L2 = tf.keras.layers.BatchNormalization()(L2)
-    L2 = tf.keras.layers.ReLU()(L2)
-    L3 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L2)
-    L3 = tf.keras.layers.BatchNormalization()(L3)
-    L3 = tf.keras.layers.ReLU()(L3)
-    L4 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L3)
-    L4 = tf.keras.layers.BatchNormalization()(L4)
-    L4 = Add()([L4,L1])
-    L4 = tf.keras.layers.ReLU()(L4)
+    LA = tf.keras.layers.Conv2D(n, (4, 50), strides=(1,1),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(inputs)
+    LA = tf.keras.layers.ZeroPadding2D(padding=((0,0), (0,49)))(LA)
+    LA = tf.keras.layers.Conv2D(n, (1, 5), strides=(1,5),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LA = tf.keras.layers.BatchNormalization()(LA)
+    LA = tf.keras.layers.ReLU()(LA)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LA = Add()([LB,LA])
+    LA = tf.keras.layers.ReLU()(LA)
 
     w = 50
-    L5 = tf.keras.layers.Conv2D(n, (1, 2), strides=(1,2),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L4)
-    L5 = tf.keras.layers.BatchNormalization()(L5)
-    L5 = tf.keras.layers.ReLU()(L5)
-    L6 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L5)
-    L6 = tf.keras.layers.BatchNormalization()(L6)
-    L6 = tf.keras.layers.ReLU()(L6)
-    L7 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L6)
-    L7 = tf.keras.layers.BatchNormalization()(L7)
-    L7 = tf.keras.layers.ReLU()(L7)
-    L8 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L7)
-    L8 = tf.keras.layers.BatchNormalization()(L8)
-    L8 = Add()([L5,L8])
-    L8 = tf.keras.layers.ReLU()(L8)
+    LA = tf.keras.layers.Conv2D(n, (1, 2), strides=(1,2),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LA = tf.keras.layers.BatchNormalization()(LA)
+    LA = tf.keras.layers.ReLU()(LA)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LA = Add()([LA,LB])
+    LA = tf.keras.layers.ReLU()(LA)
 
     w = 10
-    L9 = tf.keras.layers.Conv2D(n, (1, 5), strides=(1,5),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L8)
-    L9 = tf.keras.layers.BatchNormalization()(L9)
-    L9 = tf.keras.layers.ReLU()(L9)
-    L10 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L9)
-    L10 = tf.keras.layers.BatchNormalization()(L10)
-    L10 = tf.keras.layers.ReLU()(L10)
-    L11 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L10)
-    L11 = tf.keras.layers.BatchNormalization()(L11)
-    L11 = tf.keras.layers.ReLU()(L11)
-    L12 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L11)
-    L12 = tf.keras.layers.BatchNormalization()(L12)
-    L12 = Add()([L9,L12])
-    L12 = tf.keras.layers.ReLU()(L12)
+    LA = tf.keras.layers.Conv2D(n, (1, 5), strides=(1,5),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LA = tf.keras.layers.BatchNormalization()(LA)
+    LA = tf.keras.layers.ReLU()(LA)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LA = Add()([LA,LB])
+    LA = tf.keras.layers.ReLU()(LA)
 
     w = 5
-    L13 = tf.keras.layers.Conv2D(n, (1, 2), strides=(1,2),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L12)
-    L13 = tf.keras.layers.BatchNormalization()(L13)
-    L13 = tf.keras.layers.ReLU()(L13)
-    L14 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L13)
-    L14 = tf.keras.layers.BatchNormalization()(L14)
-    L14 = tf.keras.layers.ReLU()(L14)
-    L15 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L14)
-    L15 = tf.keras.layers.BatchNormalization()(L15)
-    L15 = tf.keras.layers.ReLU()(L15)
-    L16 = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L15)
-    L16 = tf.keras.layers.BatchNormalization()(L16)
-    L16 = Add()([L13,L16])
-    L16 = tf.keras.layers.ReLU()(L16)
+    LA = tf.keras.layers.Conv2D(n, (1, 2), strides=(1,2),activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LA = tf.keras.layers.BatchNormalization()(LA)
+    LA = tf.keras.layers.ReLU()(LA)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LB = tf.keras.layers.ReLU()(LB)
+    LB = tf.keras.layers.Conv2D(n, (1, w), strides=(1,1),padding='same',activation=fun_act, use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LB)
+    LB = tf.keras.layers.BatchNormalization()(LB)
+    LA = Add()([LA,LB])
+    LA = tf.keras.layers.ReLU()(LA)
 
-    layers = tf.keras.layers.Conv2D(5, (1, 10), strides=(1,1),padding='same',activation='sigmoid', use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(L16)
+    layers = tf.keras.layers.Conv2D(8, (1, 10), strides=(1,1),padding='same',activation='sigmoid', use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
     model = tf.keras.Model(inputs = inputs, outputs=layers)
     opt = optimizador(learning_rate=lr)
     model.compile(loss=loss_domains, optimizer=opt, metrics=[loss_precision_training])
