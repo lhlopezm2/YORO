@@ -7,14 +7,11 @@ from tensorflow.keras.optimizers import RMSprop, Adam, Adagrad, SGD, Adadelta, A
 from tensorflow.keras.layers import Dropout, Activation, Flatten, Concatenate, Dense, Reshape, Add, PReLU, LeakyReLU, BatchNormalization
 from tensorflow.keras.regularizers import l2
 
-# config = tf.compat.v1.ConfigProto()
-# config.gpu_options.allow_growth = True
-# session = tf.compat.v1.InteractiveSession(config=config)
-
 dicc_size = {0: 2000, 1: 2000, 2: 4000, 3: 1000, 4: 2000, 5: 3000, 6: 15000, 7: 18000}
 dicc_sf = {'copia': 0, 'gypsy': 1}
 dicc_dom = {'LTR': 5, 'GAG': 1, 'PROT': 3, 'RT': 0, 'INT': 2, 'RH': 4, 'internal': 6, 'te': 7}
 ventana = 50000
+
 
 def loss_domains(y_true, y_pred):
     focus = tf.gather(y_true,tf.constant([0]),axis=-1)
@@ -30,11 +27,13 @@ def loss_domains(y_true, y_pred):
     salida = K.sum(K.pow((y_true-y_pred),2)*weights)
     return salida
 
+
 def loss_precision_training(y_true, y_pred):
     presence_true = tf.gather(y_true,tf.constant([0]),axis=-1)
     presence_pred = tf.gather(y_pred,tf.constant([0]),axis=-1)
     salida = K.sum(presence_true*presence_pred)/K.sum(presence_pred)
     return salida
+
 
 def size_log(norm_value):
     return (10**(norm_value/2.405)-1.202)*4000
@@ -447,5 +446,5 @@ def YOLO_domain(optimizador=Adam,lr=0.001,momen=0,init_mode='glorot_normal',fun_
     layers = tf.keras.layers.Conv2D(8, (1, 10), strides=(1,1),padding='same',activation='sigmoid', use_bias=True, kernel_initializer=init_mode, bias_initializer='zeros', kernel_regularizer=regularizer(w_reg), bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None)(LA)
     model = tf.keras.Model(inputs = inputs, outputs=layers)
     opt = optimizador(learning_rate=lr)
-    model.compile(loss=loss_domains, optimizer=opt, metrics=[loss_precision_training])
+    model.compile(loss=loss_domains, optimizer=opt)
     return model

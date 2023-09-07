@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import gc
 import sys
 import os
+import json
 from auxiliary_functions.training_aux_fun import *
 random.seed(7)
 
@@ -84,18 +85,27 @@ def training_YORO(dataset, step, sample, start):
 
     model_name=f'{opcion_results}/AAYOLO_domain_V27'
     model = YOLO_domain()
-    #filepath=f'{model_name}.hdf5'
     filepath=f'{model_name}.h5'
     if os.path.exists(filepath):
         #model.load_weights(filepath)
-        model = tf.keras.models.load_model(filepath)
+        model = tf.keras.models.load_model(filepath, custom_objects={'loss_domains': loss_domains})
 
     #checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss_precision_training',save_weights_only=True,mode='max',save_best_only=True)
     #checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss',save_weights_only=True,mode='min',save_best_only=True)
-    history=model.fit(X_train, Y_train, epochs=20, batch_size=32, validation_data=(X_dev,Y_dev))
+    history=model.fit(X_train, Y_train, epochs=1, batch_size=32, validation_data=(X_dev,Y_dev))
     model.save(filepath)
     plot_loss(history.history,opcion_results)
-    return [X_test, Y_test, Z_test, history]
+    del X_train
+    del X_dev
+    del X_test
+    del Y_train
+    del Y_dev
+    del Y_test
+    del Z_train
+    del Z_dev
+    del Z_test
+    gc.collect()
+    return history.history
 
 
 def plot_loss(history,opcion_results):
@@ -107,20 +117,21 @@ def plot_loss(history,opcion_results):
     plt.legend(['training','validation'])
     plt.savefig(f"{opcion_results}/loss.png", format="png")
 
-    plt.figure()
-    plt.plot(history['loss_precision_training'])
-    plt.plot(history['val_loss_precision_training'])
-    plt.xlabel('Epochs')
-    plt.ylabel('Precision_training')
-    plt.legend(['training','validation'])
-    plt.savefig(f"{opcion_results}/monitor-PR.png", format="png")
+    #plt.figure()
+    #plt.plot(history['loss_precision_training'])
+    #plt.plot(history['val_loss_precision_training'])
+    #plt.xlabel('Epochs')
+    #plt.ylabel('Precision_training')
+    #plt.legend(['training','validation'])
+    #plt.savefig(f"{opcion_results}/monitor-PR.png", format="png")
 
 
 def compute_metrics(X_test, Y_test, Z_test, section):
     model_name=f'{opcion_results}/AAYOLO_domain_V27'
     model = YOLO_domain()
-    filepath='{}.hdf5'.format(model_name)
-    model.load_weights(filepath)
+    filepath=f'{model_name}.h5'
+    #model.load_weights(filepath)
+    model = tf.keras.models.load_model(filepath, custom_objects={'loss_domains': loss_domains})
     Yhat_test = model.predict(X_test)
     if section == 'int_dom':
         indexes = [3,3+5]
@@ -169,33 +180,43 @@ def compute_metrics(X_test, Y_test, Z_test, section):
 
 def main():
     step = 5000
-    sample = 55000
+    sample = 290000
     section = 'int_dom'
     #section = 'int_reg'
     history_list=[]
-    start = 55000
-    """
-    for i in range(start,sample+step,step):
-        _, _, _, history = training_YORO(section, step, i, i)
-        plt.close('all')
-        gc.collect()
-        history_list.append(history)
-    """
+    start = 5000
+    #"""
+    for j in range(100):
+        for i in range(start,sample+step,step*5):
+            if i+step*4 <= 290000:
+                history = training_YORO(section, step, i+step*4, i)
+            else:
+                history = training_YORO(section, step, 290000, i)
+            plt.close('all')
+            gc.collect()
+            history_list.append(history)
+            with open('data/history.json', 'w') as json_file:
+                json.dump(history_list, json_file)
+
+    #"""
+    start = 280000
     X_test = load_set_x('test',step,sample, start)
     gc.collect()
     Y_test = load_set_y_without_LTR('test',step,sample,start)
     gc.collect()
     Z_test = load_set_z('test',step,sample, start)
     gc.collect()
-    """
+    with open('data/history.json', 'r') as json_file:
+        history_list = json.load(json_file)
+    #"""
     combined_history = {}
-    for key in history_list[0].history:
+    for key in history_list[0]:
         result = []
         for i in history_list:
-            result = result +i.history[key]
+            result = result +i[key]
         combined_history[key] = result
     plot_loss(combined_history,opcion_results)
-    """
+    #"""
     compute_metrics(X_test, Y_test, Z_test, section)
 
 

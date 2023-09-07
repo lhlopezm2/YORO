@@ -6,7 +6,9 @@
 #SBATCH -n 15
 #SBATCH -N 1
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:7g.40gb:1
+#SBATCH --account=coffea_genomes
+#SBATCH --time=1-23:00:00
 #SBATCH --mem=20G
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=luish.lopezm@autonoma.edu.co
